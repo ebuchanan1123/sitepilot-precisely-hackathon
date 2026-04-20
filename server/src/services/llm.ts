@@ -15,6 +15,11 @@ const BUSINESS_LABELS: Record<BusinessType, string> = {
   clinic: 'medical clinic',
   gym: 'fitness center',
   grocery: 'grocery store',
+  restaurant: 'restaurant',
+  pharmacy: 'pharmacy',
+  bar: 'bar or pub',
+  retail: 'retail boutique',
+  salon: 'salon or spa',
 };
 
 const STRENGTH_TEXT: Record<string, (score: number) => string> = {

@@ -63,6 +63,11 @@ export async function generateAlternatives(
         clinic:      [0.15, 0.20, 0.20, 0.25, 0.20],
         gym:         [0.10, 0.25, 0.25, 0.25, 0.15],
         grocery:     [0.10, 0.30, 0.25, 0.20, 0.15],
+        restaurant:  [0.10, 0.22, 0.32, 0.21, 0.15],
+        pharmacy:    [0.15, 0.22, 0.18, 0.20, 0.25],
+        bar:         [0.10, 0.18, 0.34, 0.23, 0.15],
+        retail:      [0.10, 0.24, 0.26, 0.22, 0.18],
+        salon:       [0.12, 0.23, 0.24, 0.23, 0.18],
       };
       const [wa, wd, wc, wacc, wcomm] = weights[businessType] ?? weights.coffee_shop;
       const score = Math.round(

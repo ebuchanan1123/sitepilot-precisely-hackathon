@@ -5,14 +5,27 @@ import {
   getPreciselyToken,
   parseAddress,
 } from '../services/geocode.js';
+import { fetchAddressSuggestionsFromMcp } from '../services/preciselyMcp.js';
 
 const router = Router();
+
+type Suggestion = {
+  formattedAddress: string;
+  mainAddressLine: string;
+  addressLastLine: string;
+  lat?: number;
+  lng?: number;
+  country: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+};
 
 async function fetchSuggestionsForCountry(
   token: string,
   query: string,
   country: 'CAN' | 'USA',
-) {
+): Promise<Suggestion[]> {
   const parsed = parseAddress(query, country);
 
   const params = new URLSearchParams({
@@ -77,9 +90,23 @@ router.get('/address-suggestions', async (req: Request, res: Response) => {
 
   const inferredCountry: 'CAN' = 'CAN';
   const countriesToTry: Array<'CAN' | 'USA'> = ['CAN'];
-  const deduped = new Map<string, Awaited<ReturnType<typeof fetchSuggestionsForCountry>>[number]>();
+  const deduped = new Map<string, Suggestion>();
 
   let hadProviderError = false;
+
+  try {
+    const mcpSuggestions = await fetchAddressSuggestionsFromMcp(query);
+    for (const suggestion of mcpSuggestions) {
+      deduped.set(suggestion.formattedAddress, suggestion);
+    }
+
+    if (deduped.size > 0) {
+      return res.json(Array.from(deduped.values()).slice(0, 8));
+    }
+  } catch (mcpError) {
+    hadProviderError = true;
+    console.error('Address suggestion MCP error:', mcpError);
+  }
 
   try {
     const token = await getPreciselyToken();

@@ -10,6 +10,9 @@ interface InputPanelProps {
     selectedAddress?: AddressSuggestion | null,
   ) => void;
   isLoading: boolean;
+  onSaveLocation?: () => void;
+  canSaveLocation?: boolean;
+  isLocationSaved?: boolean;
 }
 
 const BUSINESS_TYPES: Array<{ value: BusinessType; label: string; icon: string }> = [
@@ -32,7 +35,13 @@ const PRIORITIES: Array<{ value: Priority; label: string }> = [
   { value: 'accessibility', label: 'Strong Accessibility' },
 ];
 
-export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
+export default function InputPanel({
+  onSubmit,
+  isLoading,
+  onSaveLocation,
+  canSaveLocation = false,
+  isLocationSaved = false,
+}: InputPanelProps) {
   const [address, setAddress] = useState('');
   const [businessType, setBusinessType] = useState<BusinessType>('coffee_shop');
   const [priorities, setPriorities] = useState<Priority[]>([]);
@@ -265,6 +274,30 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
             </>
           )}
         </button>
+
+        {onSaveLocation ? (
+          <button
+            type="button"
+            onClick={onSaveLocation}
+            disabled={!canSaveLocation}
+            className={`flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all ${
+              isLocationSaved
+                ? 'border-green-200 bg-green-50 text-green-700'
+                : 'border-stone-200 bg-white text-gray-700 hover:border-stone-300 hover:bg-stone-50'
+            } disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            <svg
+              className="h-4 w-4"
+              fill={isLocationSaved ? 'currentColor' : 'none'}
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+            </svg>
+            {isLocationSaved ? 'Saved location' : 'Save location'}
+          </button>
+        ) : null}
       </div>
     </form>
   );

@@ -9,6 +9,7 @@ import CommercialSpacesPanel from '../components/CommercialSpacesPanel';
 import SearchHistory from '../components/SearchHistory';
 import DecisionHighlights from '../components/DecisionHighlights';
 import { evaluateSite, fetchRealEstateMatches } from '../lib/api';
+import { downloadPdfReport } from '../lib/report';
 import { useSearchHistory } from '../lib/searchHistory';
 import type {
   AddressSuggestion,
@@ -28,6 +29,16 @@ export default function Home() {
 
   const { history, addEntry, removeEntry, clearHistory, toggleSave } = useSearchHistory();
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  const currentEntry = history.find((entry) => entry.id === currentEntryId);
+
+  const handleDownloadReport = () => {
+    if (!result) return;
+
+    downloadPdfReport({
+      result,
+      commercialSpaces,
+    });
+  };
 
   const handleSubmit = async (
     address: string,
@@ -73,24 +84,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <header className="border-b border-stone-200/80 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-sm">
-              <span className="text-lg">📍</span>
-            </div>
-            <div>
-              <p className="text-2xl font-black tracking-tight text-gray-900">SitePilot</p>
-              <p className="text-sm text-gray-500">Geospatial Intelligence for Smarter Business Decisions</p>
-            </div>
-          </div>
-
-          <div className="rounded-full border border-stone-200 bg-white/70 px-4 py-2 text-xs font-medium text-gray-500 opacity-80">
-            Powered by Precisely
-          </div>
-        </div>
-      </header>
-
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
@@ -106,7 +99,13 @@ export default function Home() {
         <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
           {/* Left: input */}
           <div className="lg:sticky lg:top-6 lg:self-start space-y-4">
-            <InputPanel onSubmit={handleSubmit} isLoading={isLoading} />
+            <InputPanel
+              onSubmit={handleSubmit}
+              isLoading={isLoading}
+              onSaveLocation={currentEntryId ? () => toggleSave(currentEntryId) : undefined}
+              canSaveLocation={Boolean(currentEntryId)}
+              isLocationSaved={Boolean(currentEntry?.saved)}
+            />
             <SearchHistory history={history} onRemove={removeEntry} onClear={clearHistory} onToggleSave={toggleSave} currentEntryId={currentEntryId} />
           </div>
 
@@ -156,29 +155,7 @@ export default function Home() {
 
             {result && (
               <>
-                <div className="flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={() => currentEntryId && toggleSave(currentEntryId)}
-                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                      history.find((e) => e.id === currentEntryId)?.saved
-                        ? 'border-green-200 bg-green-50 text-green-700'
-                        : 'border-stone-200 bg-white text-gray-600 hover:border-stone-300 hover:bg-stone-50'
-                    }`}
-                  >
-                    <svg
-                      className="h-3.5 w-3.5"
-                      fill={history.find((e) => e.id === currentEntryId)?.saved ? 'currentColor' : 'none'}
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-                    </svg>
-                    {history.find((e) => e.id === currentEntryId)?.saved ? 'Saved' : 'Save location'}
-                  </button>
-                </div>
-                <ResultsSummary result={result} />
+                <ResultsSummary result={result} onDownloadReport={handleDownloadReport} />
                 <LocationMap
                   primaryLocation={{
                     address: result.address.normalized,
