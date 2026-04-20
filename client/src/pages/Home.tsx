@@ -4,22 +4,54 @@ import ResultsSummary from '../components/ResultsSummary';
 import ScoreBreakdown from '../components/ScoreBreakdown';
 import StrengthsConcerns from '../components/StrengthsConcerns';
 import AISummary from '../components/AISummary';
-import AlternativesPanel from '../components/AlternativesPanel';
-import { evaluateSite } from '../lib/api';
-import type { EvaluateResponse, BusinessType, Priority } from '../lib/types';
+import LocationMap from '../components/LocationMap';
+import CommercialSpacesPanel from '../components/CommercialSpacesPanel';
+import { evaluateSite, fetchRealEstateMatches } from '../lib/api';
+import type {
+  AddressSuggestion,
+  BusinessType,
+  CommercialSpaceRecommendation,
+  EvaluateResponse,
+  Priority,
+} from '../lib/types';
 
 export default function Home() {
   const [result, setResult] = useState<EvaluateResponse | null>(null);
+  const [commercialSpaces, setCommercialSpaces] = useState<CommercialSpaceRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingCommercialSpaces, setIsLoadingCommercialSpaces] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [commercialSpacesError, setCommercialSpacesError] = useState<string | null>(null);
 
-  const handleSubmit = async (address: string, businessType: BusinessType, priorities: Priority[]) => {
+  const handleSubmit = async (
+    address: string,
+    businessType: BusinessType,
+    priorities: Priority[],
+    selectedAddress?: AddressSuggestion | null,
+  ) => {
     setError(null);
+    setCommercialSpaces([]);
+    setCommercialSpacesError(null);
     setIsLoading(true);
+    setIsLoadingCommercialSpaces(false);
     setResult(null);
     try {
-      const data = await evaluateSite({ address, businessType, priorities });
+      const data = await evaluateSite({ address, businessType, priorities, selectedAddress });
       setResult(data);
+      setIsLoadingCommercialSpaces(true);
+      try {
+        const listings = await fetchRealEstateMatches({
+          businessType,
+          lat: data.address.lat,
+          lng: data.address.lng,
+          targetAddress: data.address.normalized,
+        });
+        setCommercialSpaces(listings);
+      } catch (listingError) {
+        setCommercialSpacesError((listingError as Error).message || 'Unable to load commercial space recommendations.');
+      } finally {
+        setIsLoadingCommercialSpaces(false);
+      }
       setTimeout(() => {
         document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
@@ -98,12 +130,26 @@ export default function Home() {
             {result && (
               <>
                 <ResultsSummary result={result} />
+                <LocationMap
+                  primaryLocation={{
+                    address: result.address.normalized,
+                    lat: result.address.lat,
+                    lng: result.address.lng,
+                    score: result.score,
+                  }}
+                  alternatives={result.alternatives}
+                  commercialListings={commercialSpaces}
+                />
                 <div className="grid gap-5 lg:grid-cols-2">
                   <ScoreBreakdown breakdown={result.breakdown} />
                   <StrengthsConcerns strengths={result.strengths} concerns={result.concerns} />
                 </div>
                 <AISummary summary={result.summary} />
-                <AlternativesPanel alternatives={result.alternatives} baseScore={result.score} />
+                <CommercialSpacesPanel
+                  listings={commercialSpaces}
+                  isLoading={isLoadingCommercialSpaces}
+                  error={commercialSpacesError}
+                />
               </>
             )}
           </div>

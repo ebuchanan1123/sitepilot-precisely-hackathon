@@ -28,10 +28,23 @@ export interface AlternativeLocation {
   reasons: string[];
 }
 
+export interface AddressSuggestion {
+  formattedAddress: string;
+  mainAddressLine: string;
+  addressLastLine: string;
+  lat?: number;
+  lng?: number;
+  country: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+}
+
 export interface EvaluateRequest {
   address: string;
   businessType: BusinessType;
   priorities: Priority[];
+  selectedAddress?: AddressSuggestion | null;
 }
 
 export interface EvaluateResponse {
@@ -55,4 +68,40 @@ export interface EvaluateResponse {
   concerns: string[];
   summary: string;
   alternatives: AlternativeLocation[];
+}
+
+export type CommercialPropertyType =
+  | 'Storefront'
+  | 'Office'
+  | 'Mixed Use'
+  | 'Restaurant'
+  | 'Medical'
+  | 'Flex'
+  | 'Community Retail';
+
+export interface CommercialSpaceRecommendation {
+  id: string;
+  title: string;
+  address: string;
+  lat: number;
+  lng: number;
+  propertyType: CommercialPropertyType;
+  askingRentMonthly: number;
+  squareFeet: number;
+  zoningOrUse: string;
+  parkingSpaces: number | null;
+  distanceKm: number;
+  fitScore: number;
+  matchReasons: string[];
+  shortDescription: string;
+}
+
+export interface RealEstateMatchRequest {
+  businessType: BusinessType;
+  lat: number;
+  lng: number;
+  targetAddress?: string;
+  budget?: number;
+  desiredSquareFeet?: number;
+  preferredPropertyType?: CommercialPropertyType | 'Any';
 }

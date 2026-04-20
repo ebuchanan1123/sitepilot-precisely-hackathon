@@ -1,4 +1,5 @@
 import { scoreSite, geoScore, type BusinessType, type Priority } from './scoring.js';
+import { calculateDistanceKm } from '../utils/helpers.js';
 
 export interface AlternativeLocation {
   address: string;
@@ -27,12 +28,6 @@ const CANDIDATE_OFFSETS: Array<[number, number, string]> = [
   [0.001,  0.015, 'N'],
   [-0.013, 0.002, 'W'],
 ];
-
-function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const dlat = (lat2 - lat1) * 111;
-  const dlng = (lng2 - lng1) * 111 * Math.cos((lat1 * Math.PI) / 180);
-  return Math.sqrt(dlat * dlat + dlng * dlng);
-}
 
 const STREET_NAMES = ['Main St', 'Commerce Blvd', 'Market Ave', 'Broadway', 'Oak St', 'Park Ave', 'Elm St',
   'Madison Ave', 'Washington Blvd', 'Lincoln Way', 'Highland Ave', 'Central Ave', 'Prospect St', 'Union St'];
@@ -78,7 +73,7 @@ export async function generateAlternatives(
         lat, lng, dir,
         score: Math.min(100, Math.max(0, score)),
         address: syntheticAddress(lat, lng, dir),
-        distanceKm: distanceKm(baseLat, baseLng, lat, lng),
+        distanceKm: calculateDistanceKm(baseLat, baseLng, lat, lng),
         demoScore, compScore, accScore, commScore,
       };
     }),

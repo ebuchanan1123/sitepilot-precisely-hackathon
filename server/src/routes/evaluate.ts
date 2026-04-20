@@ -17,7 +17,7 @@ const BUSINESS_LABELS: Record<BusinessType, string> = {
 };
 
 async function handleEvaluate(req: Request, res: Response) {
-  const { address, businessType, priorities } = req.body;
+  const { address, businessType, priorities, selectedAddress } = req.body;
 
   if (!isValidString(address)) {
     return res.status(400).json({ message: 'A valid address is required.' });
@@ -27,9 +27,17 @@ async function handleEvaluate(req: Request, res: Response) {
   const pList: Priority[] = Array.isArray(priorities)
     ? priorities.filter((p): p is Priority => VALID_PRIORITIES.includes(p))
     : [];
+  const requiresPreciseLookup = /\b[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b/i.test(address) || /^\s*\d+/.test(address);
 
   try {
-    const geocode = await geocodeAddress(address);
+    let geocode;
+
+    if (selectedAddress && typeof selectedAddress.formattedAddress === 'string') {
+      geocode = await geocodeAddress(selectedAddress.formattedAddress, { requirePrecise: true });
+    } else {
+      geocode = await geocodeAddress(address, { requirePrecise: requiresPreciseLookup });
+    }
+
     const siteScore = await scoreSite(geocode.lat, geocode.lng, geocode.confidence, bType, pList);
     const alternatives = await generateAlternatives(
       geocode.lat, geocode.lng, siteScore.score, bType, pList, geocode.confidence,
@@ -67,7 +75,9 @@ async function handleEvaluate(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Evaluate error:', error);
-    return res.status(500).json({ message: 'Failed to evaluate location. Please try again.' });
+    return res.status(500).json({
+      message: 'Failed to resolve this address precisely. Please choose a more specific Canadian address or select a different suggestion.',
+    });
   }
 }
 

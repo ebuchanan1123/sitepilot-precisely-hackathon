@@ -10,6 +10,10 @@ export interface GeocodeResult {
   fromPrecisely: boolean;
 }
 
+interface GeocodeOptions {
+  requirePrecise?: boolean;
+}
+
 const CITY_COORDS: Record<string, [number, number, string]> = {
   'new york': [40.7128, -74.006, 'NY'],
   'nyc': [40.7128, -74.006, 'NY'],
@@ -39,9 +43,16 @@ const CITY_COORDS: Record<string, [number, number, string]> = {
   'minneapolis': [44.9778, -93.265, 'MN'],
   'new orleans': [29.9511, -90.0715, 'LA'],
   'toronto': [43.6532, -79.3832, 'ON'],
+  'hamilton': [43.2557, -79.8711, 'ON'],
   'vancouver': [49.2827, -123.1207, 'BC'],
   'montreal': [45.5017, -73.5673, 'QC'],
   'ottawa': [45.4215, -75.6972, 'ON'],
+  'calgary': [51.0447, -114.0719, 'AB'],
+  'edmonton': [53.5461, -113.4938, 'AB'],
+  'winnipeg': [49.8951, -97.1384, 'MB'],
+  'halifax': [44.6488, -63.5752, 'NS'],
+  'quebec city': [46.8139, -71.208, 'QC'],
+  'victoria': [48.4284, -123.3656, 'BC'],
   'san francisco': [37.7749, -122.4194, 'CA'],
   'washington': [38.9072, -77.0369, 'DC'],
   'baltimore': [39.2904, -76.6122, 'MD'],
@@ -66,6 +77,95 @@ const CITY_COORDS: Record<string, [number, number, string]> = {
   'detroit': [42.3314, -83.0458, 'MI'],
   'salt lake city': [40.7608, -111.891, 'UT'],
 };
+
+const CANADIAN_REGION_PATTERNS: Array<[RegExp, string]> = [
+  [/\bontario\b|\bon\b/, 'ON'],
+  [/\bquebec\b|\bqc\b/, 'QC'],
+  [/\bbritish columbia\b|\bbc\b/, 'BC'],
+  [/\balberta\b|\bab\b/, 'AB'],
+  [/\bmanitoba\b|\bmb\b/, 'MB'],
+  [/\bsaskatchewan\b|\bsk\b/, 'SK'],
+  [/\bnew brunswick\b|\bnb\b/, 'NB'],
+  [/\bnova scotia\b|\bns\b/, 'NS'],
+  [/\bnewfoundland and labrador\b|\bnl\b/, 'NL'],
+  [/\bprince edward island\b|\bpe\b/, 'PE'],
+];
+
+const US_REGION_PATTERNS: Array<[RegExp, string]> = [
+  [/\bnew york\b|\bny\b/, 'US'],
+  [/\bcalifornia\b|\bca\b/, 'US'],
+  [/\btexas\b|\btx\b/, 'US'],
+  [/\billinois\b|\bil\b/, 'US'],
+  [/\bflorida\b|\bfl\b/, 'US'],
+  [/\bwashington\b|\bwa\b/, 'US'],
+];
+
+const PROVINCE_ALIASES: Record<string, string> = {
+  ontario: 'ON',
+  on: 'ON',
+  quebec: 'QC',
+  qc: 'QC',
+  'british columbia': 'BC',
+  bc: 'BC',
+  alberta: 'AB',
+  ab: 'AB',
+  manitoba: 'MB',
+  mb: 'MB',
+  saskatchewan: 'SK',
+  sk: 'SK',
+  'nova scotia': 'NS',
+  ns: 'NS',
+  'new brunswick': 'NB',
+  nb: 'NB',
+  'newfoundland and labrador': 'NL',
+  nl: 'NL',
+  'prince edward island': 'PE',
+  pe: 'PE',
+};
+
+const STATE_ALIASES: Record<string, string> = {
+  california: 'CA',
+  texas: 'TX',
+  florida: 'FL',
+  illinois: 'IL',
+  washington: 'WA',
+  'new york': 'NY',
+  pennsylvania: 'PA',
+  ohio: 'OH',
+};
+
+interface ParsedAddress {
+  streetLine: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  addressNumber?: string;
+  streetName?: string;
+}
+
+interface GeocodeCandidate {
+  formattedStreetAddress?: string;
+  formattedLocationAddress?: string;
+  precisionLevel?: number;
+  precisionCode?: string;
+  geometry?: { coordinates?: [number, number] };
+  confidence?: string;
+  matching?: {
+    matchOnAddressNumber?: boolean;
+    matchOnStreetName?: boolean;
+    matchOnPostCode1?: boolean;
+    matchOnAreaName3?: boolean;
+    matchOnAreaName1?: boolean;
+  };
+  address?: {
+    addressNumber?: string;
+    streetName?: string;
+    areaName1?: string;
+    areaName3?: string;
+    postCode1?: string;
+  };
+  ranges?: Array<{ placeName?: string }>;
+}
 
 let _cachedToken: { token: string; expires: number } | null = null;
 
@@ -92,9 +192,217 @@ function stringHash(s: string): number {
   return Math.abs(h);
 }
 
-function deterministicGeocode(address: string): GeocodeResult {
+function inferCountry(address: string): 'CAN' | 'USA' {
   const lower = address.toLowerCase();
-  let baseLat = 39.5, baseLng = -98.35, city = '', state = '';
+
+  if (/\bcanada\b/.test(lower)) return 'CAN';
+  if (/\busa\b|\bunited states\b|\bu\.s\.a\.\b|\bu\.s\.\b/.test(lower)) return 'USA';
+  if (CANADIAN_REGION_PATTERNS.some(([pattern]) => pattern.test(lower))) return 'CAN';
+  if (US_REGION_PATTERNS.some(([pattern]) => pattern.test(lower))) return 'USA';
+
+  return 'USA';
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+}
+
+function normalizeRegion(value: string, country: 'CAN' | 'USA'): string {
+  const cleaned = value.toLowerCase().replace(/\./g, '').trim();
+  const lookup = country === 'CAN' ? PROVINCE_ALIASES : STATE_ALIASES;
+  return lookup[cleaned] ?? value.trim().toUpperCase();
+}
+
+function parseAddress(address: string, country: 'CAN' | 'USA'): ParsedAddress {
+  const cleaned = address.replace(/\s+/g, ' ').trim();
+  const postalRegex = country === 'CAN'
+    ? /\b([A-Z]\d[A-Z][ -]?\d[A-Z]\d)\b/i
+    : /\b(\d{5}(?:-\d{4})?)\b/;
+  const postalMatch = cleaned.match(postalRegex);
+  const postalCode = postalMatch?.[1]?.toUpperCase().replace(/\s+/g, '');
+
+  const withoutCountry = cleaned.replace(/\b(?:canada|united states|usa|u\.s\.a\.?)\b/gi, '').trim();
+  const withoutPostal = postalCode ? withoutCountry.replace(postalRegex, '').trim() : withoutCountry;
+  const parts = withoutPostal
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return { streetLine: cleaned, postalCode };
+  }
+
+  const streetLine = parts[0];
+  const streetMatch = streetLine.match(/^(\d+[A-Za-z\-]*)\s+(.+)$/);
+  let city: string | undefined;
+  let region: string | undefined;
+
+  if (parts.length >= 3) {
+    city = toTitleCase(parts[1]);
+    region = normalizeRegion(parts[2], country);
+  } else if (parts.length === 2) {
+    const regionLike = parts[1].match(/^(.+?)\s+([A-Za-z]{2})$/);
+    if (regionLike) {
+      city = toTitleCase(regionLike[1]);
+      region = normalizeRegion(regionLike[2], country);
+    } else {
+      city = toTitleCase(parts[1]);
+    }
+  }
+
+  if (!city) {
+    for (const cityName of Object.keys(CITY_COORDS)) {
+      if (withoutPostal.toLowerCase().includes(cityName)) {
+        city = toTitleCase(cityName);
+        break;
+      }
+    }
+  }
+
+  if (!region) {
+    const aliases = country === 'CAN' ? PROVINCE_ALIASES : STATE_ALIASES;
+    for (const alias of Object.keys(aliases)) {
+      const pattern = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      if (pattern.test(withoutPostal)) {
+        region = aliases[alias];
+        break;
+      }
+    }
+  }
+
+  return {
+    streetLine,
+    city,
+    region,
+    postalCode,
+    addressNumber: streetMatch?.[1],
+    streetName: streetMatch?.[2]?.trim(),
+  };
+}
+
+function normalizePostal(value: string): string {
+  return value.replace(/\s+/g, '').toLowerCase();
+}
+
+function normalizeStreet(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\b(road|rd\.?)\b/g, 'rd')
+    .replace(/\b(avenue|ave\.?)\b/g, 'ave')
+    .replace(/\b(street|st\.?)\b/g, 'st')
+    .replace(/\b(boulevard|blvd\.?)\b/g, 'blvd')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function candidateScore(candidate: {
+  formattedStreetAddress?: string;
+  formattedLocationAddress?: string;
+  precisionLevel?: number;
+  precisionCode?: string;
+  address?: {
+    addressNumber?: string;
+    streetName?: string;
+    areaName1?: string;
+    areaName3?: string;
+    postCode1?: string;
+  };
+  matching?: {
+    matchOnAddressNumber?: boolean;
+    matchOnStreetName?: boolean;
+    matchOnPostCode1?: boolean;
+    matchOnAreaName3?: boolean;
+    matchOnAreaName1?: boolean;
+  };
+}, parsed: ParsedAddress): number {
+  const streetText = `${candidate.formattedStreetAddress ?? ''} ${candidate.address?.streetName ?? ''}`.toLowerCase();
+  const locationText = `${candidate.formattedLocationAddress ?? ''} ${candidate.address?.areaName3 ?? ''} ${candidate.address?.areaName1 ?? ''}`.toLowerCase();
+  let score = 0;
+
+  const precisionLevel = candidate.precisionLevel ?? 0;
+  score += precisionLevel * 10;
+
+  if (candidate.precisionCode?.startsWith('S8')) score += 60;
+  else if (candidate.precisionCode?.startsWith('S7')) score += 45;
+  else if (candidate.precisionCode?.startsWith('S5')) score += 35;
+  else if (candidate.precisionCode?.startsWith('S4')) score += 15;
+
+  if (candidate.matching?.matchOnAddressNumber) score += 30;
+  if (candidate.matching?.matchOnStreetName) score += 25;
+  if (candidate.matching?.matchOnPostCode1) score += 20;
+  if (candidate.matching?.matchOnAreaName3) score += 10;
+  if (candidate.matching?.matchOnAreaName1) score += 6;
+
+  if (parsed.addressNumber && candidate.address?.addressNumber === parsed.addressNumber) score += 35;
+  if (parsed.streetName && normalizeStreet(streetText).includes(normalizeStreet(parsed.streetName))) score += 25;
+  if (parsed.city && locationText.includes(parsed.city.toLowerCase())) score += 12;
+  if (parsed.region && locationText.includes(parsed.region.toLowerCase())) score += 8;
+  if (parsed.postalCode && normalizePostal(candidate.address?.postCode1 ?? '').includes(normalizePostal(parsed.postalCode))) score += 25;
+
+  return score;
+}
+
+function isCandidatePreciseEnough(candidate: GeocodeCandidate, parsed: ParsedAddress): boolean {
+  const precisionCode = candidate.precisionCode ?? '';
+  const acceptablePrecision = ['S8', 'S7', 'S5', 'SX', 'SC'];
+  const hasAcceptablePrecision = acceptablePrecision.some((code) => precisionCode.startsWith(code));
+
+  if (!hasAcceptablePrecision) {
+    return false;
+  }
+
+  if (parsed.addressNumber) {
+    const exactNumberMatch = candidate.matching?.matchOnAddressNumber || candidate.address?.addressNumber === parsed.addressNumber;
+    if (!exactNumberMatch) {
+      return false;
+    }
+  }
+
+  if (parsed.streetName) {
+    const exactStreetMatch = candidate.matching?.matchOnStreetName
+      || normalizeStreet(candidate.address?.streetName ?? '').includes(normalizeStreet(parsed.streetName))
+      || normalizeStreet(candidate.formattedStreetAddress ?? '').includes(normalizeStreet(parsed.streetName));
+    if (!exactStreetMatch) {
+      return false;
+    }
+  }
+
+  if (parsed.postalCode) {
+    const postalMatch = candidate.matching?.matchOnPostCode1
+      || normalizePostal(candidate.address?.postCode1 ?? '') === normalizePostal(parsed.postalCode);
+    if (!postalMatch) {
+      return false;
+    }
+  }
+
+  if (parsed.city) {
+    const cityMatch = candidate.matching?.matchOnAreaName3
+      || candidate.address?.areaName3?.toLowerCase() === parsed.city.toLowerCase();
+    if (!cityMatch) {
+      return false;
+    }
+  }
+
+  if (parsed.region) {
+    const regionMatch = candidate.matching?.matchOnAreaName1
+      || candidate.address?.areaName1?.toLowerCase() === parsed.region.toLowerCase();
+    if (!regionMatch) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function deterministicGeocode(address: string, country: 'CAN' | 'USA'): GeocodeResult {
+  const lower = address.toLowerCase();
+  let baseLat = country === 'CAN' ? 56.1304 : 39.5;
+  let baseLng = country === 'CAN' ? -106.3468 : -98.35;
+  let city = '';
+  let state = country === 'CAN' ? 'Canada' : '';
 
   for (const [name, coords] of Object.entries(CITY_COORDS)) {
     if (lower.includes(name)) {
@@ -128,31 +436,150 @@ function deterministicGeocode(address: string): GeocodeResult {
   };
 }
 
-export async function geocodeAddress(address: string): Promise<GeocodeResult> {
+async function fetchGeocodeCandidates(
+  address: string,
+  maxCandidates = 5,
+  countryOverride?: 'CAN' | 'USA',
+): Promise<{
+  parsed: ParsedAddress;
+  candidates: GeocodeCandidate[];
+}> {
+  const country = countryOverride ?? 'CAN';
+  const parsed = parseAddress(address, country);
+  const token = await getPreciselyToken();
+  const body = {
+    type: 'ADDRESS',
+    preferences: {
+      maxReturnedCandidates: maxCandidates,
+      returnAllCandidateInfo: true,
+      fallbackToGeographic: false,
+      fallbackToPostal: false,
+      clientLocale: 'en_CA',
+      clientCoordSysName: 'EPSG:4326',
+      matchMode: 'Custom',
+      mustMatchFields: {
+        matchOnAddressNumber: !!parsed.addressNumber,
+        matchOnPostCode1: !!parsed.postalCode,
+        matchOnPostCode2: false,
+        matchOnAreaName1: !!parsed.region,
+        matchOnAreaName2: false,
+        matchOnAreaName3: !!parsed.city,
+        matchOnAreaName4: false,
+        matchOnAllStreetFields: false,
+        matchOnStreetName: !!parsed.streetName,
+        matchOnStreetType: false,
+        matchOnStreetDirectional: false,
+        matchOnPlaceName: false,
+        matchOnInputFields: false,
+      },
+      returnFieldsDescriptor: {
+        returnAllCustomFields: true,
+        returnMatchDescriptor: true,
+        returnStreetAddressFields: true,
+        returnUnitInformation: true,
+        returnedCustomFieldKeys: [],
+      },
+      customPreferences: {
+        FALLBACK_TO_WORLD: 'false',
+      },
+    },
+    addresses: [
+      {
+        mainAddressLine: parsed.streetLine || address.trim(),
+        ...(parsed.city ? { areaName3: parsed.city } : {}),
+        ...(parsed.region ? { areaName1: parsed.region } : {}),
+        ...(parsed.postalCode ? { postalCode: parsed.postalCode } : {}),
+        country,
+      },
+    ],
+  };
+
+  const resp = await fetch('https://api.precisely.com/geocode/v1/premium/geocode', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const errBody = await resp.text().catch(() => '');
+    throw new Error(`Premium geocoding ${resp.status}: ${errBody}`);
+  }
+
+  const data = (await resp.json()) as {
+    responses?: Array<{
+      candidates?: GeocodeCandidate[];
+    }>;
+  };
+
+  const candidates = [...(data.responses?.[0]?.candidates ?? [])]
+    .sort((a, b) => candidateScore(b, parsed) - candidateScore(a, parsed));
+
+  return { parsed, candidates };
+}
+
+async function fetchBestGeocodeCandidates(address: string, maxCandidates = 5): Promise<{
+  parsed: ParsedAddress;
+  candidates: GeocodeCandidate[];
+}> {
+  const inferredCountry: 'CAN' = 'CAN';
+  const countriesToTry: Array<'CAN' | 'USA'> = ['CAN'];
+  const deduped = new Map<string, GeocodeCandidate>();
+  let parsed = parseAddress(address, inferredCountry);
+  let lastError: unknown;
+
+  for (const country of countriesToTry) {
+    try {
+      const result = await fetchGeocodeCandidates(address, maxCandidates, country);
+      parsed = result.parsed;
+
+      for (const candidate of result.candidates) {
+        const key = [
+          candidate.formattedStreetAddress ?? '',
+          candidate.formattedLocationAddress ?? '',
+          candidate.geometry?.coordinates?.join(',') ?? '',
+        ].join('|');
+
+        if (!deduped.has(key)) {
+          deduped.set(key, candidate);
+        }
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  const mergedCandidates = [...deduped.values()]
+    .sort((a, b) => candidateScore(b, parsed) - candidateScore(a, parsed))
+    .slice(0, maxCandidates);
+
+  const strictCandidates = mergedCandidates.filter((candidate) => isCandidatePreciseEnough(candidate, parsed));
+
+  if (strictCandidates.length > 0) {
+    return { parsed, candidates: strictCandidates };
+  }
+
+  if (mergedCandidates.length === 0 && lastError) {
+    throw lastError;
+  }
+
+  return { parsed, candidates: mergedCandidates };
+}
+
+export async function geocodeAddress(address: string, options: GeocodeOptions = {}): Promise<GeocodeResult> {
+  const country: 'CAN' = 'CAN';
+  const parsed = parseAddress(address, country);
+
   try {
-    const token = await getPreciselyToken();
-    const params = new URLSearchParams({ mainAddressLine: address.trim(), country: 'USA', maxCandidates: '1' });
-    const resp = await fetch(`https://api.precisely.com/geocoding/v1/address?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!resp.ok) throw new Error(`Geocoding ${resp.status}`);
-
-    const data = (await resp.json()) as {
-      candidates?: Array<{
-        formattedAddress?: string;
-        geometry?: { coordinates?: [number, number] };
-        confidence?: string;
-        ranges?: Array<{ placeName?: string }>;
-      }>;
-    };
-
-    const candidate = data.candidates?.[0];
+    const { candidates } = await fetchBestGeocodeCandidates(address, 5);
+    const candidate = candidates[0];
     if (!candidate?.geometry?.coordinates) throw new Error('No geocoding candidate');
 
     const [lng, lat] = candidate.geometry.coordinates;
     const rawConf = candidate.confidence ?? 'MEDIUM';
     const confidence = rawConf === 'HIGH' ? 94 : rawConf === 'MEDIUM' ? 76 : 55;
-    const lower = (candidate.formattedAddress ?? '').toLowerCase();
+    const lower = `${candidate.formattedStreetAddress ?? ''} ${candidate.formattedLocationAddress ?? ''}`.toLowerCase();
     let city = '', state = '';
     for (const [name, coords] of Object.entries(CITY_COORDS)) {
       if (lower.includes(name)) { city = name.replace(/\b\w/g, (c) => c.toUpperCase()); state = coords[2]; break; }
@@ -160,7 +587,7 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
 
     return {
       raw: address,
-      normalized: candidate.formattedAddress ?? address.trim(),
+      normalized: `${candidate.formattedStreetAddress ?? parsed.streetLine}${candidate.formattedLocationAddress ? `, ${candidate.formattedLocationAddress}` : ''}`.trim(),
       lat,
       lng,
       confidence,
@@ -169,9 +596,18 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
       state,
       fromPrecisely: true,
     };
-  } catch {
-    return deterministicGeocode(address);
+  } catch (error) {
+    if (options.requirePrecise) {
+      throw error;
+    }
+    return deterministicGeocode(address, country);
   }
 }
 
-export { getPreciselyToken };
+export {
+  getPreciselyToken,
+  inferCountry as inferCountryCode,
+  parseAddress,
+  fetchGeocodeCandidates,
+  fetchBestGeocodeCandidates,
+};

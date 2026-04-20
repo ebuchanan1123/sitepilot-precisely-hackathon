@@ -6,6 +6,7 @@ AI-assisted site evaluation app with a React + Vite frontend and an Express + Ty
 
 - `client/`: React UI built with Vite
 - `server/`: Express API with scoring, geocoding, alternatives, and explanation services
+- mocked commercial-space recommendations ranked against the evaluated business/location context
 - fallback behavior when external API keys are missing
 - deploy support for either:
   - a single-service deployment where Express serves the built frontend
@@ -53,6 +54,14 @@ npm run dev:client
 ```
 
 During local Vite development, the client proxies `/api` requests to `http://localhost:4000`.
+
+## Mocked commercial space recommendations
+
+After a successful business location evaluation, the app now fetches a second ranked layer of nearby commercial listings under **Recommended Commercial Spaces**.
+
+- The current implementation uses a small mock Ottawa-area dataset stored in the repo for demo and hackathon use.
+- Listings are ranked with a transparent deterministic fit score based on proximity, affordability, size match, and compatibility with the current business concept.
+- The mock dataset is intentionally provider-agnostic so a live commercial real-estate data source can be plugged into the backend later without redesigning the frontend flow.
 
 ## Production build
 
@@ -107,7 +116,27 @@ Frontend:
 
 - `POST /api/evaluate`
 - `POST /api/analyze`
+- `POST /api/real-estate/match`
 - `GET /api/health`
+
+### `POST /api/real-estate/match`
+
+Returns ranked mock commercial listings near the evaluated area.
+
+Example request shape:
+
+```json
+{
+  "businessType": "coffee_shop",
+  "lat": 45.4215,
+  "lng": -75.6972,
+  "budget": 5500,
+  "desiredSquareFeet": 1400,
+  "preferredPropertyType": "Storefront"
+}
+```
+
+The response includes normalized listing cards with rent, square footage, distance, fit score, and human-readable match reasons.
 
 ## Notes
 

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import ScoreGauge from './ScoreGauge';
 import type { EvaluateResponse } from '../lib/types';
 
@@ -19,6 +20,25 @@ function DecisionBadge({ decision, score }: { decision: string; score: number })
 }
 
 export default function ResultsSummary({ result }: ResultsSummaryProps) {
+  const [shouldAnimateGauge, setShouldAnimateGauge] = useState(false);
+
+  useEffect(() => {
+    setShouldAnimateGauge(false);
+
+    let frameA = 0;
+    let frameB = 0;
+    frameA = window.requestAnimationFrame(() => {
+      frameB = window.requestAnimationFrame(() => {
+        setShouldAnimateGauge(true);
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameA);
+      window.cancelAnimationFrame(frameB);
+    };
+  }, [result.address.normalized, result.score]);
+
   const confCls: Record<string, string> = {
     High: 'text-emerald-400 bg-emerald-500/10',
     Medium: 'text-amber-400 bg-amber-500/10',
@@ -29,7 +49,7 @@ export default function ResultsSummary({ result }: ResultsSummaryProps) {
     <section className="rounded-2xl border border-white/10 bg-[#111827] p-6">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="flex-shrink-0 sm:w-52">
-          <ScoreGauge score={result.score} />
+          <ScoreGauge score={result.score} animate={shouldAnimateGauge} />
         </div>
 
         <div className="flex-1 space-y-4">
