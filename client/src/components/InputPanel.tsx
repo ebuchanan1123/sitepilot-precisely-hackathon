@@ -14,9 +14,14 @@ interface InputPanelProps {
 
 const BUSINESS_TYPES: Array<{ value: BusinessType; label: string; icon: string }> = [
   { value: 'coffee_shop', label: 'Coffee Shop', icon: '☕' },
-  { value: 'clinic', label: 'Medical Clinic', icon: '🏥' },
-  { value: 'gym', label: 'Fitness Center', icon: '💪' },
+  { value: 'restaurant', label: 'Restaurant', icon: '🍽️' },
+  { value: 'bar', label: 'Bar / Pub', icon: '🍺' },
   { value: 'grocery', label: 'Grocery Store', icon: '🛒' },
+  { value: 'retail', label: 'Retail Boutique', icon: '🏪' },
+  { value: 'clinic', label: 'Medical Clinic', icon: '🏥' },
+  { value: 'pharmacy', label: 'Pharmacy', icon: '💊' },
+  { value: 'gym', label: 'Fitness Center', icon: '💪' },
+  { value: 'salon', label: 'Salon / Spa', icon: '✂️' },
 ];
 
 const PRIORITIES: Array<{ value: Priority; label: string }> = [
@@ -125,10 +130,10 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-white/10 bg-[#111827] p-6">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-stone-200 bg-white p-6">
       <div className="space-y-5">
         <div>
-          <label className="block text-sm font-semibold text-gray-200">Business Address</label>
+          <label className="block text-sm font-semibold text-gray-800">Business Address</label>
           <p className="mt-0.5 text-xs text-gray-500">Enter the address you want to evaluate</p>
           <div ref={containerRef} className="relative mt-2">
             <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
@@ -149,7 +154,7 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
               }}
               onKeyDown={handleAddressKeyDown}
               placeholder="e.g. 150 Elgin St, Ottawa, ON"
-              className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-sm text-gray-100 placeholder-gray-600 focus:border-blue-500 focus:bg-white/8 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-stone-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
               disabled={isLoading}
             />
             {isSuggesting && (
@@ -161,7 +166,7 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
               </div>
             )}
             {showSuggestions && (suggestions.length > 0 || suggestionError || (hasFetchedSuggestions && !isSuggesting)) && (
-              <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-white/10 bg-[#0f172a] py-2 shadow-2xl shadow-black/40">
+              <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-stone-200 bg-white py-2 shadow-xl shadow-stone-300/40">
                 {suggestionError ? (
                   <div className="px-3 py-3 text-sm text-red-300">{suggestionError}</div>
                 ) : suggestions.length > 0 ? (
@@ -171,20 +176,20 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
                       type="button"
                       onClick={() => applySuggestion(suggestion)}
                       className={`block w-full px-3 py-2 text-left transition-colors ${
-                        highlightedIndex === index ? 'bg-blue-500/15' : 'hover:bg-white/5'
+                        highlightedIndex === index ? 'bg-green-50' : 'hover:bg-stone-50'
                       }`}
                     >
-                      <div className="text-sm font-medium text-gray-100">{suggestion.mainAddressLine}</div>
-                      <div className="text-xs text-gray-400">{suggestion.addressLastLine}</div>
+                      <div className="text-sm font-medium text-gray-900">{suggestion.mainAddressLine}</div>
+                      <div className="text-xs text-gray-500">{suggestion.addressLastLine}</div>
                     </button>
                   ))
                 ) : (
-                  <div className="px-3 py-3 text-sm text-gray-400">No Precisely suggestions found for this input yet.</div>
+                  <div className="px-3 py-3 text-sm text-gray-500">No Precisely suggestions found for this input yet.</div>
                 )}
               </div>
             )}
           </div>
-          <p className={`mt-2 text-xs ${selectedAddress ? 'text-emerald-400' : 'text-gray-500'}`}>
+          <p className={`mt-2 text-xs ${selectedAddress ? 'text-emerald-600' : 'text-gray-500'}`}>
             {selectedAddress
               ? 'Using Precisely suggestion for exact map placement.'
               : 'Choose a Precisely suggestion for the most exact location match.'}
@@ -192,29 +197,30 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-200">Business Type</label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {BUSINESS_TYPES.map((bt) => (
-              <button
-                key={bt.value}
-                type="button"
-                onClick={() => setBusinessType(bt.value)}
-                disabled={isLoading}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
-                  businessType === bt.value
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500'
-                    : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <span>{bt.icon}</span>
-                {bt.label}
-              </button>
-            ))}
+          <label className="block text-sm font-semibold text-gray-800">Business Type</label>
+          <div className="relative mt-2">
+            <select
+              value={businessType}
+              onChange={(e) => setBusinessType(e.target.value as BusinessType)}
+              disabled={isLoading}
+              className="w-full appearance-none rounded-lg border border-stone-200 bg-white py-2.5 pl-4 pr-9 text-sm text-gray-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600 disabled:opacity-40"
+            >
+              {BUSINESS_TYPES.map((bt) => (
+                <option key={bt.value} value={bt.value} className="bg-white text-gray-900">
+                  {bt.icon} {bt.label}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+              </svg>
+            </div>
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-200">
+          <label className="block text-sm font-semibold text-gray-800">
             Priorities <span className="font-normal text-gray-500">(optional)</span>
           </label>
           <p className="mt-0.5 text-xs text-gray-500">Boost weight on factors that matter most</p>
@@ -227,8 +233,8 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
                 disabled={isLoading}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                   priorities.includes(p.value)
-                    ? 'border-blue-500 bg-blue-500/20 text-blue-300'
-                    : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20'
+                    ? 'border-green-600 bg-green-50 text-green-700'
+                    : 'border-stone-200 bg-white text-gray-600 hover:border-stone-300'
                 }`}
               >
                 {p.label}
@@ -240,7 +246,7 @@ export default function InputPanel({ onSubmit, isLoading }: InputPanelProps) {
         <button
           type="submit"
           disabled={isLoading || !address.trim()}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:from-blue-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 px-4 py-3 text-sm font-semibold text-white transition-all hover:from-green-700 hover:to-green-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isLoading ? (
             <>

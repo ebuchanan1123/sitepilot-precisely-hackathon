@@ -1,4 +1,4 @@
-export type BusinessType = 'coffee_shop' | 'clinic' | 'gym' | 'grocery';
+export type BusinessType = 'coffee_shop' | 'clinic' | 'gym' | 'grocery' | 'restaurant' | 'pharmacy' | 'bar' | 'retail' | 'salon';
 export type Priority = 'high_foot_traffic' | 'low_competition' | 'family_area' | 'premium_demographic' | 'accessibility';
 
 export interface FactorScore {
@@ -79,6 +79,14 @@ export type CommercialPropertyType =
   | 'Flex'
   | 'Community Retail';
 
+export interface LocationDemographics {
+  averageHouseholdIncome: number | null;
+  population: number | null;
+  averageHomeValue: number | null;
+  educationBachelorsPct: number | null;
+  fromPrecisely: boolean;
+}
+
 export interface CommercialSpaceRecommendation {
   id: string;
   title: string;
@@ -94,6 +102,7 @@ export interface CommercialSpaceRecommendation {
   fitScore: number;
   matchReasons: string[];
   shortDescription: string;
+  demographics: LocationDemographics | null;
 }
 
 export interface RealEstateMatchRequest {

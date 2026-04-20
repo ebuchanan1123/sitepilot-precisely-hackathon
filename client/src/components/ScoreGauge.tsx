@@ -76,14 +76,14 @@ export default function ScoreGauge({ score, animate }: ScoreGaugeProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative h-[170px] w-[170px]">
+      <div className="relative h-[220px] w-[220px]">
         <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
           <circle
             cx="70"
             cy="70"
             r={RADIUS}
             fill="none"
-            stroke="#1f2937"
+            stroke="#e5e7eb"
             strokeWidth="11"
           />
           <circle
@@ -101,19 +101,19 @@ export default function ScoreGauge({ score, animate }: ScoreGaugeProps) {
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-5xl font-extrabold tracking-tight" style={{ color }}>
+          <span className="text-7xl font-black tracking-tight" style={{ color }}>
             {displayScore}
           </span>
-          <span className="mt-1 text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+          <span className="mt-1 text-sm font-semibold uppercase tracking-[0.38em] text-gray-500">
             Score
           </span>
-          <span className="mt-1 text-sm font-semibold text-slate-400">
+          <span className="mt-1 text-base font-semibold text-gray-500">
             {displayScore}% of 100
           </span>
         </div>
       </div>
 
-      <span className="mt-2 text-sm font-bold uppercase tracking-[0.26em]" style={{ color }}>
+      <span className="mt-3 text-base font-black uppercase tracking-[0.34em]" style={{ color }}>
         {label}
       </span>
     </div>

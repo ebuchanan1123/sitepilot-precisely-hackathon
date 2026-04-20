@@ -7,7 +7,7 @@ import { isValidString } from '../utils/helpers.js';
 
 const router = Router();
 
-const VALID_BUSINESS_TYPES: BusinessType[] = ['coffee_shop', 'clinic', 'gym', 'grocery'];
+const VALID_BUSINESS_TYPES: BusinessType[] = ['coffee_shop', 'clinic', 'gym', 'grocery', 'restaurant', 'pharmacy', 'bar', 'retail', 'salon'];
 
 router.post('/real-estate/match', async (req: Request, res: Response) => {
   const {
@@ -49,7 +49,7 @@ router.post('/real-estate/match', async (req: Request, res: Response) => {
     }
   }
 
-  const matches = matchCommercialListings({
+  const matches = await matchCommercialListings({
     businessType,
     lat: resolvedLat,
     lng: resolvedLng,

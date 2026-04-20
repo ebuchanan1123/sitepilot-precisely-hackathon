@@ -117,36 +117,36 @@ export default function LocationMap({ primaryLocation, alternatives, commercialL
   const center: LatLngExpression = [primaryLocation.lat, primaryLocation.lng];
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#111827] p-6">
+    <section className="rounded-2xl border border-stone-200 bg-white p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400">Location Map</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-600">Location Map</h2>
           <p className="mt-1 text-xs text-gray-500">
             Proposed site and nearby alternatives plotted from the evaluation coordinates
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs font-medium">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-gray-300">
-            <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
+          <span className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-gray-700">
+            <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
             Proposed
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-gray-300">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+          <span className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-gray-700">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
             Alternatives
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-gray-300">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+          <span className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-gray-700">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
             Commercial spaces
           </span>
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+      <div className="mt-4 overflow-hidden rounded-2xl border border-stone-200">
         <MapContainer
           center={center}
           zoom={14}
           scrollWheelZoom={true}
-          className="h-[360px] w-full bg-[#0b1220]"
+          className="h-[360px] w-full bg-stone-100"
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

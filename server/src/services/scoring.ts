@@ -1,6 +1,6 @@
 import { getPreciselyToken } from './geocode.js';
 
-export type BusinessType = 'coffee_shop' | 'clinic' | 'gym' | 'grocery';
+export type BusinessType = 'coffee_shop' | 'clinic' | 'gym' | 'grocery' | 'restaurant' | 'pharmacy' | 'bar' | 'retail' | 'salon';
 export type Priority = 'high_foot_traffic' | 'low_competition' | 'family_area' | 'premium_demographic' | 'accessibility';
 
 export interface FactorScore {
@@ -39,6 +39,11 @@ const BASE_WEIGHTS: Record<BusinessType, Weights> = {
   clinic:      { address: 0.15, demographic: 0.20, competition: 0.20, accessibility: 0.25, commercial: 0.20 },
   gym:         { address: 0.10, demographic: 0.25, competition: 0.25, accessibility: 0.25, commercial: 0.15 },
   grocery:     { address: 0.10, demographic: 0.30, competition: 0.25, accessibility: 0.20, commercial: 0.15 },
+  restaurant:  { address: 0.10, demographic: 0.25, competition: 0.30, accessibility: 0.25, commercial: 0.10 },
+  pharmacy:    { address: 0.10, demographic: 0.25, competition: 0.20, accessibility: 0.25, commercial: 0.20 },
+  bar:         { address: 0.10, demographic: 0.20, competition: 0.30, accessibility: 0.30, commercial: 0.10 },
+  retail:      { address: 0.10, demographic: 0.30, competition: 0.25, accessibility: 0.25, commercial: 0.10 },
+  salon:       { address: 0.10, demographic: 0.30, competition: 0.25, accessibility: 0.20, commercial: 0.15 },
 };
 
 function applyPriorities(weights: Weights, priorities: Priority[]): Weights {
@@ -92,6 +97,11 @@ async function fetchPreciselyPOIs(
     clinic: 'Clinic',
     gym: 'Fitness',
     grocery: 'Grocery',
+    restaurant: 'Restaurant',
+    pharmacy: 'Pharmacy',
+    bar: 'Bar',
+    retail: 'Shopping',
+    salon: 'Salon',
   };
   try {
     const token = await getPreciselyToken();

@@ -604,6 +604,71 @@ export async function geocodeAddress(address: string, options: GeocodeOptions = 
   }
 }
 
+export interface LocationDemographics {
+  averageHouseholdIncome: number | null;
+  population: number | null;
+  averageHomeValue: number | null;
+  educationBachelorsPct: number | null;
+  fromPrecisely: boolean;
+}
+
+export async function fetchDemographics(address: string): Promise<LocationDemographics> {
+  const token = await getPreciselyToken();
+  const query = `
+    query GetDemographics($address: String!, $country: String) {
+      getByAddress(address: $address, country: $country) {
+        addresses(pageNumber: 1, pageSize: 1) {
+          data {
+            groundView {
+              data {
+                censusBlockGroupPopulation
+                averageHouseholdIncome
+                educationBachelorsDegreePercent
+                averageHomeValue
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+  const resp = await fetch('https://api.precisely.com/data-graph/graphql', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query, variables: { address, country: 'CAN' } }),
+  });
+  if (!resp.ok) throw new Error(`Demographics API ${resp.status}`);
+  const json = (await resp.json()) as {
+    data?: {
+      getByAddress?: {
+        addresses?: {
+          data?: Array<{
+            groundView?: {
+              data?: Array<{
+                censusBlockGroupPopulation?: number;
+                averageHouseholdIncome?: number;
+                educationBachelorsDegreePercent?: number;
+                averageHomeValue?: number;
+              }>;
+            };
+          }>;
+        };
+      };
+    };
+  };
+  const row = json.data?.getByAddress?.addresses?.data?.[0]?.groundView?.data?.[0];
+  return {
+    averageHouseholdIncome: row?.averageHouseholdIncome ?? null,
+    population: row?.censusBlockGroupPopulation ?? null,
+    averageHomeValue: row?.averageHomeValue ?? null,
+    educationBachelorsPct: row?.educationBachelorsDegreePercent ?? null,
+    fromPrecisely: true,
+  };
+}
+
 export {
   getPreciselyToken,
   inferCountry as inferCountryCode,

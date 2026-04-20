@@ -7,13 +7,18 @@ import { isValidString } from '../utils/helpers.js';
 
 const router = Router();
 
-const VALID_BUSINESS_TYPES: BusinessType[] = ['coffee_shop', 'clinic', 'gym', 'grocery'];
+const VALID_BUSINESS_TYPES: BusinessType[] = ['coffee_shop', 'clinic', 'gym', 'grocery', 'restaurant', 'pharmacy', 'bar', 'retail', 'salon'];
 const VALID_PRIORITIES: Priority[] = ['high_foot_traffic', 'low_competition', 'family_area', 'premium_demographic', 'accessibility'];
 const BUSINESS_LABELS: Record<BusinessType, string> = {
   coffee_shop: 'Coffee Shop',
   clinic: 'Medical Clinic',
   gym: 'Fitness Center',
   grocery: 'Grocery Store',
+  restaurant: 'Restaurant',
+  pharmacy: 'Pharmacy',
+  bar: 'Bar / Pub',
+  retail: 'Retail Boutique',
+  salon: 'Salon / Spa',
 };
 
 async function handleEvaluate(req: Request, res: Response) {

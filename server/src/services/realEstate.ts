@@ -1,6 +1,7 @@
 import { commercialListings, type CommercialListing, type CommercialPropertyType } from '../data/commercialListings.js';
 import type { BusinessType } from './scoring.js';
 import { calculateDistanceKm } from '../utils/helpers.js';
+import { fetchDemographics, type LocationDemographics } from './geocode.js';
 
 export interface RealEstateMatchRequest {
   businessType: BusinessType;
@@ -26,6 +27,7 @@ export interface RankedCommercialListing {
   fitScore: number;
   matchReasons: string[];
   shortDescription: string;
+  demographics: LocationDemographics | null;
 }
 
 interface BusinessPreferences {
@@ -68,6 +70,46 @@ const BUSINESS_PREFERENCES: Record<BusinessType, BusinessPreferences> = {
     distanceWeight: 0.2,
     affordabilityWeight: 0.2,
     sizeWeight: 0.25,
+    compatibilityWeight: 0.35,
+  },
+  restaurant: {
+    compatiblePropertyTypes: ['Restaurant', 'Storefront', 'Mixed Use'],
+    zoningKeywords: ['restaurant', 'food', 'mainstreet', 'mixed', 'retail'],
+    distanceWeight: 0.3,
+    affordabilityWeight: 0.2,
+    sizeWeight: 0.15,
+    compatibilityWeight: 0.35,
+  },
+  pharmacy: {
+    compatiblePropertyTypes: ['Storefront', 'Medical', 'Community Retail', 'Mixed Use'],
+    zoningKeywords: ['medical', 'retail', 'service', 'commercial'],
+    distanceWeight: 0.25,
+    affordabilityWeight: 0.2,
+    sizeWeight: 0.2,
+    compatibilityWeight: 0.35,
+  },
+  bar: {
+    compatiblePropertyTypes: ['Restaurant', 'Storefront', 'Mixed Use'],
+    zoningKeywords: ['restaurant', 'mainstreet', 'mixed', 'entertainment'],
+    distanceWeight: 0.3,
+    affordabilityWeight: 0.2,
+    sizeWeight: 0.15,
+    compatibilityWeight: 0.35,
+  },
+  retail: {
+    compatiblePropertyTypes: ['Storefront', 'Community Retail', 'Mixed Use'],
+    zoningKeywords: ['retail', 'mainstreet', 'commercial', 'mixed'],
+    distanceWeight: 0.25,
+    affordabilityWeight: 0.2,
+    sizeWeight: 0.2,
+    compatibilityWeight: 0.35,
+  },
+  salon: {
+    compatiblePropertyTypes: ['Storefront', 'Mixed Use', 'Community Retail', 'Office'],
+    zoningKeywords: ['retail', 'service', 'mainstreet', 'commercial'],
+    distanceWeight: 0.25,
+    affordabilityWeight: 0.25,
+    sizeWeight: 0.15,
     compatibilityWeight: 0.35,
   },
 };
@@ -177,6 +219,21 @@ function buildMatchReasons(
   if (businessType === 'grocery' && ['Community Retail', 'Storefront', 'Mixed Use'].includes(listing.propertyType)) {
     reasons.push('Neighbourhood-facing commercial use supports repeat visits and everyday convenience shopping.');
   }
+  if (businessType === 'restaurant' && ['Restaurant', 'Mixed Use'].includes(listing.propertyType)) {
+    reasons.push('Pre-fitted restaurant shell reduces build-out cost and speeds up time to open.');
+  }
+  if (businessType === 'pharmacy' && ['Medical', 'Community Retail'].includes(listing.propertyType)) {
+    reasons.push('Proximity to medical uses and accessible parking support high prescription pickup volume.');
+  }
+  if (businessType === 'bar' && listing.zoningOrUse.toLowerCase().includes('entertainment')) {
+    reasons.push('Zoning permits licensed premises and extended-hours operation for a bar or pub concept.');
+  }
+  if (businessType === 'retail' && listing.propertyType === 'Storefront') {
+    reasons.push('Street-front retail format maximises display visibility and drop-in browsing traffic.');
+  }
+  if (businessType === 'salon' && (listing.propertyType === 'Storefront' || listing.propertyType === 'Office')) {
+    reasons.push('Private-room potential and a residential-adjacent setting attract loyal appointment-based clientele.');
+  }
 
   if (reasons.length === 0) {
     reasons.push(`Zoning and property format are compatible with a ${businessType.replace('_', ' ')} concept.`);
@@ -189,10 +246,10 @@ export function getCommercialPropertyTypes(): Array<CommercialPropertyType | 'An
   return ['Any', ...new Set(commercialListings.map((listing) => listing.propertyType))];
 }
 
-export function matchCommercialListings(request: RealEstateMatchRequest): RankedCommercialListing[] {
+export async function matchCommercialListings(request: RealEstateMatchRequest): Promise<RankedCommercialListing[]> {
   const preferences = BUSINESS_PREFERENCES[request.businessType] ?? BUSINESS_PREFERENCES.coffee_shop;
 
-  return commercialListings
+  const ranked = commercialListings
     .map((listing) => {
       const distanceKm = calculateDistanceKm(request.lat, request.lng, listing.lat, listing.lng);
       const distanceScore = scoreDistance(distanceKm);
@@ -234,9 +291,20 @@ export function matchCommercialListings(request: RealEstateMatchRequest): Ranked
           request.desiredSquareFeet,
         ),
         shortDescription: listing.shortDescription,
+        demographics: null as LocationDemographics | null,
       };
     })
     .filter((listing) => listing.distanceKm <= 8)
     .sort((a, b) => b.fitScore - a.fitScore || a.distanceKm - b.distanceKm)
     .slice(0, 8);
+
+  const results = await Promise.allSettled(
+    ranked.map((listing) =>
+      fetchDemographics(listing.address)
+        .then((demographics) => ({ ...listing, demographics }))
+        .catch(() => listing),
+    ),
+  );
+
+  return results.map((r) => (r.status === 'fulfilled' ? r.value : ranked[results.indexOf(r)]));
 }
